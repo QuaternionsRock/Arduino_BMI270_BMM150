@@ -9,6 +9,61 @@
 
 static events::EventQueue queue(10 * EVENTS_EVENT_SIZE);
 #endif
+
+extern "C" {
+  static int8_t bmi2_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr)
+  {
+    if ((reg_data == NULL) || (len == 0) || (len > 32)) {
+      return -1;
+    }
+    uint8_t bytes_received;
+
+    struct dev_info* dev_info = (struct dev_info*)intf_ptr;
+    uint8_t dev_id = dev_info->dev_addr;
+
+    dev_info->_wire->beginTransmission(dev_id);
+    dev_info->_wire->write(reg_addr);
+    if (dev_info->_wire->endTransmission() == 0) {
+      bytes_received = dev_info->_wire->requestFrom(dev_id, len);
+      // Optionally, throw an error if bytes_received != len
+      for (uint16_t i = 0; i < bytes_received; i++)
+      {
+        reg_data[i] = dev_info->_wire->read();
+      }
+    } else {
+      return -1;
+    }
+
+    return 0;
+  }
+
+  static int8_t bmi2_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
+  {
+    if ((reg_data == NULL) || (len == 0) || (len > 32)) {
+      return -1;
+    }
+
+    struct dev_info* dev_info = (struct dev_info*)intf_ptr;
+    uint8_t dev_id = dev_info->dev_addr;
+    dev_info->_wire->beginTransmission(dev_id);
+    dev_info->_wire->write(reg_addr);
+    for (uint16_t i = 0; i < len; i++)
+    {
+      dev_info->_wire->write(reg_data[i]);
+    }
+    if (dev_info->_wire->endTransmission() != 0) {
+      return -1;
+    }
+
+    return 0;
+  }
+
+  static void bmi2_delay_us(uint32_t period, void *intf_ptr)
+  {
+    delayMicroseconds(period);
+  }
+}
+
 BoschSensorClass::BoschSensorClass(TwoWire& wire)
 {
   _wire = &wire;
@@ -274,57 +329,6 @@ int8_t BoschSensorClass::configure_sensor(struct bmm150_dev *dev)
     return rslt;
 }
 
-int8_t BoschSensorClass::bmi2_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr)
-{
-  if ((reg_data == NULL) || (len == 0) || (len > 32)) {
-    return -1;
-  }
-  uint8_t bytes_received;
-
-  struct dev_info* dev_info = (struct dev_info*)intf_ptr;
-  uint8_t dev_id = dev_info->dev_addr;
-
-  dev_info->_wire->beginTransmission(dev_id);
-  dev_info->_wire->write(reg_addr);
-  if (dev_info->_wire->endTransmission() == 0) {
-    bytes_received = dev_info->_wire->requestFrom(dev_id, len);
-    // Optionally, throw an error if bytes_received != len
-    for (uint16_t i = 0; i < bytes_received; i++)
-    {
-      reg_data[i] = dev_info->_wire->read();
-    }
-  } else {
-    return -1;
-  }
-
-  return 0;
-}
-
-int8_t BoschSensorClass::bmi2_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
-{
-  if ((reg_data == NULL) || (len == 0) || (len > 32)) {
-    return -1;
-  }
-
-  struct dev_info* dev_info = (struct dev_info*)intf_ptr;
-  uint8_t dev_id = dev_info->dev_addr;
-  dev_info->_wire->beginTransmission(dev_id);
-  dev_info->_wire->write(reg_addr);
-  for (uint16_t i = 0; i < len; i++)
-  {
-    dev_info->_wire->write(reg_data[i]);
-  }
-  if (dev_info->_wire->endTransmission() != 0) {
-    return -1;
-  }
-
-  return 0;
-}
-
-void BoschSensorClass::bmi2_delay_us(uint32_t period, void *intf_ptr)
-{
-  delayMicroseconds(period);
-}
 #ifdef __MBED__
 void BoschSensorClass::interrupt_handler()
 {
