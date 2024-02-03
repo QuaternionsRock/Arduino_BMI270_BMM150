@@ -23,7 +23,7 @@ extern "C" {
 
     dev_info->_wire->beginTransmission(dev_id);
     dev_info->_wire->write(reg_addr);
-    if (dev_info->_wire->endTransmission() == 0) {
+    if (dev_info->_wire->endTransmission(false) == 0) {
       bytes_received = dev_info->_wire->requestFrom(dev_id, len);
       // Optionally, throw an error if bytes_received != len
       for (uint16_t i = 0; i < bytes_received; i++)
